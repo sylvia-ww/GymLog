@@ -5,7 +5,6 @@ import android.os.Bundle;
 import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
 import android.view.View;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import com.example.gymlog.databinding.ActivityMainBinding;
@@ -16,7 +15,7 @@ public class MainActivity extends AppCompatActivity {
 
     ActivityMainBinding binding;
 
-    private static final String TAG = "GYMLOG";
+    public static final String TAG = "GYMLOG";
     String exercise = "";
     double weight = 0.0;
     int reps = 0;
