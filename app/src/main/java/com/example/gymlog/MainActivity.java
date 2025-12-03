@@ -25,13 +25,15 @@ import com.example.gymlog.database.entities.User;
 import com.example.gymlog.databinding.ActivityMainBinding;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
 
     //key for user id
-    private static final String MAIN_ACTIVITY_USER_ID = "com.example.gymlog.MAIN_ACTIVITY_USER_ID";
+    static final String MAIN_ACTIVITY_USER_ID = "com.example.gymlog.MAIN_ACTIVITY_USER_ID";
     static final String SHARED_PREFERENCE_USERID_KEY = "com.example.gymlog.SHARED_PREFERENCE_USERID_KEY";
+    static final String SAVED_INSTANCE_STATE_USERID_KEY = "com.example.gymlog.SAVED_INSTANCE_STATE_USERID_KEY";
     static final String SHARED_PREFERENCE_USERID_VALUE = "com.example.gymlog.SHARED_PREFERENCE_USERID_VALUE";
     private static final int LOGGED_OUT = -1;
     private ActivityMainBinding binding;
@@ -51,15 +53,15 @@ public class MainActivity extends AppCompatActivity {
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        loginUser();
+        //make db
+        repository = GymLogRepository.getRepository(getApplication());
+
+        loginUser(savedInstanceState);
+        //if loggedInUserId is -1 (default), kicks app back to login screen
         if(loggedInUserId == -1) {
             Intent intent = LoginActivity.loginIntentFactory(getApplicationContext());
             startActivity(intent);
         }
-
-
-        //make db
-        repository = GymLogRepository.getRepository(getApplication());
 
         //allows scrolling
         binding.logDisplayTextView.setMovementMethod(new ScrollingMovementMethod());
@@ -85,30 +87,48 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    private void loginUser() {
-        //check shared preference for logged in user.
-        SharedPreferences sharedPreferences = getApplicationContext().getSharedPreferences(SHARED_PREFERENCE_USERID_KEY,
-                Context.MODE_PRIVATE); //MODE_PRIVATE - only applicable to our application
-        //SHARED_PREFERENCE_USERID_KEY - only used on our device
-
-        //getting value out of sharedprefs
-        loggedInUserId = sharedPreferences.getInt(SHARED_PREFERENCE_USERID_VALUE,LOGGED_OUT);
-        if(loggedInUserId != LOGGED_OUT){
-            return;
+    private void loginUser(Bundle savedInstanceState) {
+        //checks sharedpreferences for logged in user
+        SharedPreferences sharedPreferences = getSharedPreferences(SHARED_PREFERENCE_USERID_KEY,
+                Context.MODE_PRIVATE);
+        if (sharedPreferences.contains(SHARED_PREFERENCE_USERID_VALUE)) {
+            loggedInUserId = sharedPreferences.getInt(SHARED_PREFERENCE_USERID_VALUE, LOGGED_OUT);
         }
-
-        //check intent for logged in user
-        loggedInUserId = getIntent().getIntExtra(MAIN_ACTIVITY_USER_ID, LOGGED_OUT);
+        if(loggedInUserId == LOGGED_OUT & savedInstanceState != null && savedInstanceState.containsKey(SAVED_INSTANCE_STATE_USERID_KEY)) {
+            loggedInUserId = savedInstanceState.getInt(SAVED_INSTANCE_STATE_USERID_KEY, LOGGED_OUT);
+        }
+        //if still logged out, pull from intent
+        if(loggedInUserId == LOGGED_OUT){
+            loggedInUserId = getIntent().getIntExtra(MAIN_ACTIVITY_USER_ID, LOGGED_OUT);
+        }
+        //starts main activity
         if(loggedInUserId == LOGGED_OUT) {
             return;
         }
         LiveData<User> userObserver = repository.getUserByUserId(loggedInUserId);
-        userObserver.observe(this, user -> {
-            if (user != null) {
+        userObserver.observe(this, u -> {
+            if (u != null) {
+                this.user = u;
                 invalidateOptionsMenu();
+            } else {
+                //logout();
+                //TODO: verify if this was an issue
             }
         });
 
+    }
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        //saving user id
+        outState.putInt(SAVED_INSTANCE_STATE_USERID_KEY, loggedInUserId);
+        //store in pref
+        SharedPreferences sharedPreferences = getSharedPreferences(SHARED_PREFERENCE_USERID_KEY,
+                Context.MODE_PRIVATE);
+        SharedPreferences.Editor sharedPrefEditor = sharedPreferences.edit();
+        sharedPrefEditor.putInt(MainActivity.SHARED_PREFERENCE_USERID_KEY, loggedInUserId);
+        sharedPrefEditor.apply();
     }
 
     @Override
@@ -167,7 +187,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void logout() {
-        SharedPreferences sharedPreferences = getApplicationContext().getSharedPreferences(SHARED_PREFERENCE_USERID_KEY,Context.MODE_PRIVATE);
+        SharedPreferences sharedPreferences = getApplicationContext().getSharedPreferences(
+                SHARED_PREFERENCE_USERID_KEY,Context.MODE_PRIVATE);
         SharedPreferences.Editor sharedPrefEditor = sharedPreferences.edit();
         sharedPrefEditor.putInt(SHARED_PREFERENCE_USERID_KEY,LOGGED_OUT);
         sharedPrefEditor.apply();
@@ -184,7 +205,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void insertGymLogRecord() {
-        //don't insert if empty
         if (exercise.isEmpty()) {
             return;
         }
@@ -193,7 +213,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateDisplay() {
-        ArrayList<GymLog> allLogs = repository.getAllLogs();
+        ArrayList<GymLog> allLogs = repository.getAllLogsByUserId(loggedInUserId);
         if (allLogs.isEmpty()) {
             binding.logDisplayTextView.setText(R.string.nothing_to_show_time_to_hit_the_gym);
         }

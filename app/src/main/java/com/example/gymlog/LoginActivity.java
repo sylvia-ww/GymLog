@@ -51,16 +51,7 @@ public class LoginActivity extends AppCompatActivity {
             if (user != null) {
                 String password = binding.passwordLoginEditText.getText().toString();
                 if (password.equals(user.getPassword())) {
-                    //gets sharedpreferences
-                    SharedPreferences sharedPreferences = getApplicationContext().
-                            getSharedPreferences(MainActivity.SHARED_PREFERENCE_USERID_KEY,
-                                    Context.MODE_PRIVATE);
-                    SharedPreferences.Editor sharedPrefEditor = sharedPreferences.edit();
-                    //stores an integer
-                    sharedPrefEditor.putInt(MainActivity.SHARED_PREFERENCE_USERID_KEY, user.getId());
-                    //saves changes
-                    sharedPrefEditor.apply();
-                    //starts main activity
+                   //if passwords match,s tart activity
                     startActivity(MainActivity.mainActivityIntentFactory(getApplicationContext(), user.getId()));
                 } else {
                     toastMaker("Invalid password");
